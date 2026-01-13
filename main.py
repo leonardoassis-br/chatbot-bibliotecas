@@ -100,6 +100,15 @@ def load_documents(folder_path: str) -> str:
     return "\n".join(texts)
 
 # -------------------------------------------------
+# UTILIDADE: DETECTAR SAUDAÇÃO
+# -------------------------------------------------
+def is_greeting(text: str) -> bool:
+    greetings = {
+        "oi", "olá", "ola", "bom dia", "boa tarde", "boa noite", "oi!"
+    }
+    return text.lower().strip() in greetings
+
+# -------------------------------------------------
 # ROTAS
 # -------------------------------------------------
 @app.get("/")
@@ -109,6 +118,14 @@ def chat():
 @app.post("/ask")
 def ask(payload: Question):
     global DOCUMENT_CACHE
+
+    question = payload.question.strip()
+
+    # 🔹 Resposta direta para saudações
+    if is_greeting(question):
+        return {
+            "answer": "Oi! 😊 Em que posso ajudar?"
+        }
 
     token = os.getenv("TOKEN_BIBLIOTECA_EXEMPLO")
     if token not in TOKEN_MAP:
@@ -120,49 +137,44 @@ def ask(payload: Question):
     if DOCUMENT_CACHE is None:
         DOCUMENT_CACHE = load_documents(folder)
 
+    if not DOCUMENT_CACHE.strip():
+        return {
+            "answer": "Não encontrei informações no acervo ou nos documentos da biblioteca."
+        }
+
     # -------------------------------------------------
-    # PROMPT FINAL — INTERAÇÃO NATURAL DE REFERÊNCIA
+    # PROMPT SIMPLES, FLUIDO E NEUTRO
     # -------------------------------------------------
     messages = [
         {
             "role": "system",
             "content": (
-                "Você atua como um bibliotecário de referência virtual.\n\n"
-                "REGRAS DE INTERAÇÃO:\n"
-                "- Responda exclusivamente ao que o usuário perguntou.\n"
-                "- NÃO antecipe informações, serviços ou explicações.\n"
-                "- NÃO liste conteúdos, funções ou possibilidades sem solicitação explícita.\n\n"
-                "SAUDAÇÕES:\n"
-                "- Se o usuário fizer apenas uma saudação curta "
-                "(como \"oi\", \"olá\" ou \"bom dia\"), responda apenas com uma saudação "
-                "e convide a pessoa a dizer como pode ajudar.\n\n"
-                "CONTEÚDO:\n"
-                "- Quando houver uma pergunta, utilize apenas as informações presentes "
-                "nos documentos da biblioteca e no acervo.\n"
-                "- Explique de forma clara, simples e acolhedora.\n"
-                "- Não pressuponha o tipo de biblioteca.\n"
-                "- Não mencione instituições, universidades ou sistemas específicos.\n"
-                "- Não utilize conhecimento externo.\n\n"
-                "Se a pergunta não puder ser respondida com base nos documentos, "
-                "informe isso de forma clara."
+                "Você é um bibliotecário de referência virtual.\n\n"
+                "Responda apenas ao que foi perguntado.\n"
+                "Utilize exclusivamente as informações presentes "
+                "nos documentos e no acervo fornecidos.\n"
+                "Explique de forma clara, simples e acolhedora.\n\n"
+                "Não mencione instituições específicas, universidades "
+                "ou sistemas nomeados.\n"
+                "Não antecipe informações não solicitadas."
             )
         }
     ]
 
-    # memória curta (coerência da conversa)
+    # memória curta
     for m in payload.history:
         messages.append({"role": m.role, "content": m.content})
 
-    # documentos (apenas se houver pergunta real)
+    # documentos
     messages.append({
         "role": "system",
-        "content": f"ACERVO E DOCUMENTOS:\n{DOCUMENT_CACHE}"
+        "content": f"ACERVO:\n{DOCUMENT_CACHE}"
     })
 
-    # pergunta atual
+    # pergunta
     messages.append({
         "role": "user",
-        "content": payload.question
+        "content": question
     })
 
     response = client.chat.completions.create(
