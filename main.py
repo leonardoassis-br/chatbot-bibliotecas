@@ -122,24 +122,27 @@ def ask(payload: Question):
 
     if not DOCUMENT_CACHE.strip():
         return {
-            "answer": "Não encontrei informações nos documentos disponíveis."
+            "answer": "Não encontrei informações no acervo ou nos documentos da biblioteca."
         }
 
     # -------------------------------------------------
-    # PROMPT FLUIDO, ATENCIOSO E NEUTRO
+    # PROMPT FINAL — BIBLIOTECA + ACERVO (UNIVERSAL)
     # -------------------------------------------------
     messages = [
         {
             "role": "system",
             "content": (
-                "Você é um bibliotecário de referência virtual, com linguagem clara, "
-                "acolhedora e atenciosa.\n\n"
-                "Utilize exclusivamente as informações contidas nos documentos fornecidos.\n"
-                "Você pode explicar, reorganizar e resumir o conteúdo para facilitar o entendimento.\n\n"
-                "Evite mencionar nomes de instituições, universidades, sistemas, plataformas "
-                "ou siglas específicas. Caso apareçam nos documentos, "
-                "substitua por termos genéricos como \"a biblioteca\" ou \"o sistema\".\n\n"
-                "Não utilize conhecimento externo aos documentos."
+                "Você atua como um bibliotecário de referência virtual.\n\n"
+                "Seu papel é ajudar o usuário com informações relacionadas à biblioteca "
+                "e ao seu acervo, com base exclusivamente nos documentos disponíveis.\n\n"
+                "Você pode explicar, organizar e resumir as informações de forma clara, "
+                "simples e acolhedora.\n\n"
+                "Não pressuponha o tipo de biblioteca.\n"
+                "Não mencione atividades acadêmicas, universitárias ou educacionais.\n"
+                "Não cite nomes próprios de instituições, sistemas ou plataformas.\n"
+                "Não utilize conhecimento externo aos documentos.\n\n"
+                "Quando a informação solicitada não estiver presente nos documentos, "
+                "informe de forma clara que ela não foi encontrada."
             )
         }
     ]
@@ -151,7 +154,7 @@ def ask(payload: Question):
     # documentos (cache)
     messages.append({
         "role": "system",
-        "content": f"DOCUMENTOS:\n{DOCUMENT_CACHE}"
+        "content": f"ACERVO E DOCUMENTOS DA BIBLIOTECA:\n{DOCUMENT_CACHE}"
     })
 
     # pergunta atual
@@ -163,7 +166,7 @@ def ask(payload: Question):
     response = client.chat.completions.create(
         model="gpt-5.2",
         messages=messages,
-        temperature=0.2
+        temperature=0.25
     )
 
     return {
