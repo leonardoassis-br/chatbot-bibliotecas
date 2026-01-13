@@ -44,24 +44,26 @@ class Question(BaseModel):
     history: list[Message] = []
 
 # -------------------------------------------------
-# CACHE DE DOCUMENTOS (EM MEMÓRIA)
+# CACHE DE DOCUMENTOS (MEMÓRIA VOLÁTIL)
 # -------------------------------------------------
 DOCUMENT_CACHE = None
 
 # -------------------------------------------------
 # LEITURA DE DOCUMENTOS
 # -------------------------------------------------
-def load_documents(folder_path: str):
+def load_documents(folder_path: str) -> str:
     texts = []
 
     for file in os.listdir(folder_path):
         path = os.path.join(folder_path, file)
 
         try:
+            # TXT
             if file.lower().endswith(".txt"):
                 with open(path, "r", encoding="utf-8") as f:
                     texts.append(f.read())
 
+            # PDF (texto nativo)
             elif file.lower().endswith(".pdf"):
                 reader = PdfReader(path)
                 for page in reader.pages:
@@ -69,12 +71,14 @@ def load_documents(folder_path: str):
                     if text:
                         texts.append(text)
 
+            # Word (.docx)
             elif file.lower().endswith(".docx"):
                 doc = Document(path)
                 for p in doc.paragraphs:
                     if p.text.strip():
                         texts.append(p.text)
 
+            # Excel (.xlsx) – limitado
             elif file.lower().endswith(".xlsx"):
                 wb = openpyxl.load_workbook(path, data_only=True)
                 MAX_ROWS = 1000
@@ -125,18 +129,28 @@ def ask(payload: Question):
             "answer": "Não encontrei informações nos documentos disponíveis."
         }
 
+    # -------------------------------------------------
+    # PROMPT ESTRITO (CONTROLE TOTAL DE LINGUAGEM)
+    # -------------------------------------------------
     messages = [
         {
             "role": "system",
             "content": (
-                "Você é um bibliotecário de referência virtual. "
-                "Responda apenas com base nos documentos fornecidos. "
-                "Use o histórico apenas para manter coerência."
+                "Você é um bibliotecário de referência virtual.\n\n"
+                "REGRAS OBRIGATÓRIAS:\n"
+                "- Responda EXCLUSIVAMENTE com base no conteúdo dos documentos fornecidos.\n"
+                "- NÃO cite nomes de instituições, universidades, sistemas, plataformas ou siglas.\n"
+                "- NÃO crie exemplos, listas ou explicações que não estejam explicitamente nos documentos.\n"
+                "- NÃO presuma prazos, horários, serviços ou procedimentos.\n"
+                "- NÃO utilize conhecimento externo.\n\n"
+                "Se a informação solicitada NÃO estiver claramente presente nos documentos, "
+                "responda APENAS:\n"
+                "\"Não encontrei essa informação nos documentos disponíveis.\""
             )
         }
     ]
 
-    # memória curta
+    # memória curta (apenas para coerência)
     for m in payload.history:
         messages.append({"role": m.role, "content": m.content})
 
