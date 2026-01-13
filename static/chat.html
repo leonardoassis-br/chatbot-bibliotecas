@@ -62,6 +62,12 @@ body {
   line-height: 1.5;
 }
 
+.loading {
+  margin-left: 10px;
+  font-style: italic;
+  color: #666;
+}
+
 textarea {
   width: 100%;
   height: 80px;
@@ -94,23 +100,30 @@ button {
 
   <div class="header">
     <h2>Bibliotecário de Referência Virtual</h2>
-    <p>Posso te ajudar com normas, prazos, procedimentos e documentos da biblioteca.</p>
+    <p>Um apoio para encontrar informações nos documentos da biblioteca.</p>
   </div>
 
   <div class="notice">
     Olá! 👋  
-    Sou o <strong>bibliotecário de referência virtual</strong> e estou aqui para te ajudar.
+    Sou o <strong>bibliotecário de referência virtual</strong>.
     <br><br>
-    Pode perguntar à vontade, como se estivesse conversando no balcão da biblioteca.
-    Eu respondo com base nos documentos institucionais disponíveis
-    (tutoriais, normas, regulamentos e planilhas).
+    Estou aqui para conversar com você e ajudar a encontrar informações
+    nos documentos disponíveis da biblioteca.
     <br><br>
-    A conversa fica ativa só enquanto esta página estiver aberta.
+    A conversa acontece apenas enquanto esta página estiver aberta.
   </div>
 
-  <div class="messages" id="messages"></div>
+  <div class="messages" id="messages">
+    <div class="bot" id="welcome-message">
+      📚 <strong>Bibliotecário:</strong> Vamos conversar?  
+      Digite aqui a sua interação.
+    </div>
+  </div>
 
-  <textarea id="question" placeholder="Exemplo: Qual é o prazo para depositar minha tese?"></textarea>
+  <textarea
+    id="question"
+    placeholder="Digite sua pergunta aqui…">
+  </textarea>
 
   <div class="buttons">
     <button onclick="send()">Perguntar</button>
@@ -118,23 +131,28 @@ button {
   </div>
 
   <div class="footer">
-    Este assistente apoia o atendimento, mas não substitui o contato direto com a biblioteca.
+    Este assistente apoia o atendimento, mas não substitui o bibliotecário quando necessário.
   </div>
 </div>
 
 <script>
 let conversation = [];
 const MAX_HISTORY = 6;
+let firstInteraction = true;
 
-function render(role, text) {
+function render(role, text, className) {
   const div = document.createElement("div");
-  div.className = role;
+  div.className = className || role;
+
   div.innerHTML = text
     .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
     .replace(/\n/g, "<br>");
+
   document.getElementById("messages").appendChild(div);
   document.getElementById("messages").scrollTop =
     document.getElementById("messages").scrollHeight;
+
+  return div;
 }
 
 async function send() {
@@ -142,11 +160,24 @@ async function send() {
   const q = input.value.trim();
   if (!q) return;
 
-  render("user", "Você: " + q);
+  // Remove a mensagem inicial na primeira interação
+  if (firstInteraction) {
+    const welcome = document.getElementById("welcome-message");
+    if (welcome) welcome.remove();
+    firstInteraction = false;
+  }
+
+  render("user", "<strong>Você:</strong> " + q, "user");
   input.value = "";
 
   conversation.push({ role: "user", content: q });
   const history = conversation.slice(-MAX_HISTORY);
+
+  const loadingDiv = render(
+    "bot",
+    "📚 <em>O bibliotecário está consultando os documentos…</em>",
+    "loading"
+  );
 
   const res = await fetch("/ask", {
     method: "POST",
@@ -156,7 +187,14 @@ async function send() {
 
   const data = await res.json();
 
-  render("bot", "Bibliotecário: " + data.answer);
+  loadingDiv.remove();
+
+  render(
+    "bot",
+    "<strong>Bibliotecário:</strong> " + data.answer,
+    "bot"
+  );
+
   conversation.push({ role: "assistant", content: data.answer });
 }
 
@@ -165,7 +203,7 @@ function printChat() {
   const chat = document.getElementById("chat").innerHTML;
 
   document.body.innerHTML = `
-    <h2>Registro da conversa – Biblioteca</h2>
+    <h2>Registro da conversa</h2>
     <hr>
     ${chat}
   `;
