@@ -116,7 +116,7 @@ def ask(payload: Question):
 
     folder = TOKEN_MAP[token]
 
-    # 🔹 Cache: carrega documentos apenas uma vez
+    # Cache: carrega documentos apenas uma vez
     if DOCUMENT_CACHE is None:
         DOCUMENT_CACHE = load_documents(folder)
 
@@ -153,7 +153,7 @@ def ask(payload: Question):
     })
 
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-5.2",
         messages=messages,
         temperature=0
     )
