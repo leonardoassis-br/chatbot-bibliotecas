@@ -1,141 +1,179 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <title>Assistente da Biblioteca</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<title>Bibliotecário de Referência</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f5f5f5;
-      display: flex;
-      justify-content: center;
-      padding: 40px;
-    }
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #f5f5f5;
+  display: flex;
+  justify-content: center;
+  padding: 30px;
+}
 
-    .chat-container {
-      background: #ffffff;
-      width: 100%;
-      max-width: 600px;
-      padding: 24px;
-      border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
+.chat {
+  background: #ffffff;
+  width: 100%;
+  max-width: 760px;
+  padding: 24px;
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
 
-    h1 {
-      font-size: 20px;
-      margin-bottom: 8px;
-    }
+.header h2 {
+  margin: 0;
+  font-size: 22px;
+}
 
-    p {
-      font-size: 14px;
-      color: #555;
-      margin-bottom: 16px;
-    }
+.header p {
+  margin-top: 6px;
+  font-size: 14px;
+  color: #555;
+}
 
-    textarea {
-      width: 100%;
-      height: 90px;
-      padding: 10px;
-      font-size: 14px;
-      box-sizing: border-box;
-    }
+.notice {
+  background: #f0f4f8;
+  border-left: 4px solid #2a6ebb;
+  padding: 12px;
+  font-size: 14px;
+  margin: 16px 0;
+  color: #333;
+}
 
-    button {
-      margin-top: 10px;
-      padding: 10px 16px;
-      font-size: 14px;
-      cursor: pointer;
-    }
+.messages {
+  max-height: 420px;
+  overflow-y: auto;
+  margin-bottom: 16px;
+  padding-right: 8px;
+}
 
-    .response {
-      margin-top: 20px;
-      padding: 15px;
-      background: #f0f0f0;
-      border-radius: 5px;
-      white-space: pre-wrap;
-      font-size: 14px;
-    }
+.user {
+  margin-top: 14px;
+  font-weight: bold;
+}
 
-    .footer {
-      margin-top: 20px;
-      font-size: 12px;
-      color: #777;
-    }
-  </style>
+.bot {
+  margin-left: 10px;
+  margin-top: 6px;
+  margin-bottom: 10px;
+  line-height: 1.5;
+}
+
+textarea {
+  width: 100%;
+  height: 80px;
+  padding: 10px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.buttons {
+  margin-top: 10px;
+}
+
+button {
+  padding: 10px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  margin-right: 8px;
+}
+
+.footer {
+  margin-top: 14px;
+  font-size: 12px;
+  color: #777;
+}
+</style>
 </head>
 
 <body>
-  <div class="chat-container">
-    <h1>Assistente da Biblioteca</h1>
+<div class="chat" id="chat">
 
-    <p>
-      Este assistente responde exclusivamente com base nos documentos
-      institucionais da biblioteca.
-    </p>
-
-    <textarea
-      id="question"
-      placeholder="Digite sua pergunta aqui..."
-    ></textarea>
-
-    <button onclick="sendQuestion()">Perguntar</button>
-
-    <div
-      id="response"
-      class="response"
-      style="display: none;"
-    ></div>
-
-    <div class="footer">
-      As respostas são geradas automaticamente a partir da base documental da biblioteca.
-    </div>
+  <div class="header">
+    <h2>Bibliotecário de Referência Virtual</h2>
+    <p>Posso te ajudar com normas, prazos, procedimentos e documentos da biblioteca.</p>
   </div>
 
-  <script>
-    async function sendQuestion() {
-      const questionInput = document.getElementById("question");
-      const responseDiv = document.getElementById("response");
+  <div class="notice">
+    Olá! 👋  
+    Sou o <strong>bibliotecário de referência virtual</strong> e estou aqui para te ajudar.
+    <br><br>
+    Pode perguntar à vontade, como se estivesse conversando no balcão da biblioteca.
+    Eu respondo com base nos documentos institucionais disponíveis
+    (tutoriais, normas, regulamentos e planilhas).
+    <br><br>
+    A conversa fica ativa só enquanto esta página estiver aberta.
+  </div>
 
-      const question = questionInput.value.trim();
+  <div class="messages" id="messages"></div>
 
-      if (!question) {
-        alert("Por favor, digite uma pergunta.");
-        return;
-      }
+  <textarea id="question" placeholder="Exemplo: Qual é o prazo para depositar minha tese?"></textarea>
 
-      responseDiv.style.display = "block";
-      responseDiv.innerHTML = "Consultando a base de conhecimento...";
+  <div class="buttons">
+    <button onclick="send()">Perguntar</button>
+    <button onclick="printChat()">Imprimir / Salvar em PDF</button>
+  </div>
 
-      try {
-        const response = await fetch("/ask", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            question: question
-          })
-        });
+  <div class="footer">
+    Este assistente apoia o atendimento, mas não substitui o contato direto com a biblioteca.
+  </div>
+</div>
 
-        if (!response.ok) {
-          responseDiv.textContent = "Erro ao consultar o assistente.";
-          return;
-        }
+<script>
+let conversation = [];
+const MAX_HISTORY = 6;
 
-        const data = await response.json();
-        
-	let formatted = data.answer
- 	 .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
-	 .replace(/\n/g, "<br>");
-	responseDiv.innerHTML = formatted || "Nenhuma resposta encontrada.";
+function render(role, text) {
+  const div = document.createElement("div");
+  div.className = role;
+  div.innerHTML = text
+    .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\n/g, "<br>");
+  document.getElementById("messages").appendChild(div);
+  document.getElementById("messages").scrollTop =
+    document.getElementById("messages").scrollHeight;
+}
 
+async function send() {
+  const input = document.getElementById("question");
+  const q = input.value.trim();
+  if (!q) return;
 
-      } catch (error) {
-        responseDiv.textContent = "Erro de comunicação com o servidor.";
-      }
-    }
-  </script>
+  render("user", "Você: " + q);
+  input.value = "";
+
+  conversation.push({ role: "user", content: q });
+  const history = conversation.slice(-MAX_HISTORY);
+
+  const res = await fetch("/ask", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question: q, history: history })
+  });
+
+  const data = await res.json();
+
+  render("bot", "Bibliotecário: " + data.answer);
+  conversation.push({ role: "assistant", content: data.answer });
+}
+
+function printChat() {
+  const original = document.body.innerHTML;
+  const chat = document.getElementById("chat").innerHTML;
+
+  document.body.innerHTML = `
+    <h2>Registro da conversa – Biblioteca</h2>
+    <hr>
+    ${chat}
+  `;
+
+  window.print();
+  document.body.innerHTML = original;
+}
+</script>
+
 </body>
 </html>
