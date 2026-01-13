@@ -44,14 +44,14 @@ class Question(BaseModel):
     history: list[Message] = []
 
 # -------------------------------------------------
-# CACHE DE DOCUMENTOS
+# CACHE DE DOCUMENTOS (EM MEMÓRIA)
 # -------------------------------------------------
 DOCUMENT_CACHE = None
 
 # -------------------------------------------------
 # LEITURA DE DOCUMENTOS
 # -------------------------------------------------
-def load_documents(folder_path: str) -> str:
+def load_documents(folder_path: str):
     texts = []
 
     for file in os.listdir(folder_path):
@@ -100,15 +100,6 @@ def load_documents(folder_path: str) -> str:
     return "\n".join(texts)
 
 # -------------------------------------------------
-# UTILIDADE: SAUDAÇÃO SIMPLES
-# -------------------------------------------------
-def is_greeting(text: str) -> bool:
-    greetings = {
-        "oi", "olá", "ola", "bom dia", "boa tarde", "boa noite"
-    }
-    return text.lower().strip() in greetings
-
-# -------------------------------------------------
 # ROTAS
 # -------------------------------------------------
 @app.get("/")
@@ -119,64 +110,54 @@ def chat():
 def ask(payload: Question):
     global DOCUMENT_CACHE
 
-    question = payload.question.strip()
-
-    # Saudação simples → resposta direta
-    if is_greeting(question):
-        return {"answer": "Oi! 😊 Em que posso ajudar?"}
-
     token = os.getenv("TOKEN_BIBLIOTECA_EXEMPLO")
     if token not in TOKEN_MAP:
         raise HTTPException(status_code=401, detail="Token inválido")
 
     folder = TOKEN_MAP[token]
 
+    # Cache: carrega documentos apenas uma vez
     if DOCUMENT_CACHE is None:
         DOCUMENT_CACHE = load_documents(folder)
 
     if not DOCUMENT_CACHE.strip():
         return {
-            "answer": "Não encontrei informações no acervo ou nos documentos da biblioteca."
+            "answer": "Não encontrei informações nos documentos disponíveis."
         }
 
     messages = [
         {
             "role": "system",
             "content": (
-                "Você é um bibliotecário de referência virtual.\n\n"
-                "Responda apenas ao que o usuário perguntou.\n"
-                "Utilize exclusivamente as informações presentes "
-                "nos documentos e no acervo fornecidos.\n"
-                "Explique de forma clara, simples e acolhedora.\n\n"
-                "Não antecipe informações não solicitadas.\n"
-                "Não mencione instituições, universidades, "
-                "sistemas ou contextos acadêmicos.\n"
-                "Não utilize conhecimento externo."
+                "Você é um bibliotecário de referência virtual. "
+                "Responda apenas com base nos documentos fornecidos. "
+                "Use o histórico apenas para manter coerência."
             )
         }
     ]
 
+    # memória curta
     for m in payload.history:
         messages.append({"role": m.role, "content": m.content})
 
+    # documentos (cache)
     messages.append({
         "role": "system",
-        "content": f"ACERVO:\n{DOCUMENT_CACHE}"
+        "content": f"DOCUMENTOS:\n{DOCUMENT_CACHE}"
     })
 
+    # pergunta atual
     messages.append({
         "role": "user",
-        "content": question
+        "content": payload.question
     })
 
     response = client.chat.completions.create(
         model="gpt-5.2",
         messages=messages,
-        temperature=0.3
+        temperature=0
     )
 
-    answer = response.choices[0].message.content
-    if not answer or not answer.strip():
-        answer = "Pode me explicar um pouco melhor o que você procura?"
-
-    return {"answer": answer.strip()}
+    return {
+        "answer": response.choices[0].message.content.strip()
+    }
