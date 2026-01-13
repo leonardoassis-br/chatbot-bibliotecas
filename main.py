@@ -49,21 +49,8 @@ class Question(BaseModel):
 DOCUMENT_CACHE = None
 
 # -------------------------------------------------
-# UTILIDADES
+# LEITURA DE DOCUMENTOS
 # -------------------------------------------------
-def extract_keywords(question: str):
-    stopwords = {
-        "o","a","os","as","de","do","da","dos","das",
-        "para","por","em","no","na","nos","nas",
-        "qual","quais","é","são","um","uma","meu","minha",
-        "seu","sua","como","sobre","isso","isto"
-    }
-
-    return [
-        w for w in question.lower().split()
-        if w not in stopwords and len(w) > 3
-    ]
-
 def load_documents(folder_path: str):
     texts = []
 
@@ -129,7 +116,7 @@ def ask(payload: Question):
 
     folder = TOKEN_MAP[token]
 
-    # 🔹 Carrega documentos apenas uma vez
+    # 🔹 Cache: carrega documentos apenas uma vez
     if DOCUMENT_CACHE is None:
         DOCUMENT_CACHE = load_documents(folder)
 
@@ -166,7 +153,7 @@ def ask(payload: Question):
     })
 
     response = client.chat.completions.create(
-        model="gpt-4.1-mini",
+        model="gpt-4o-mini",
         messages=messages,
         temperature=0
     )
