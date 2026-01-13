@@ -58,12 +58,10 @@ def load_documents(folder_path: str) -> str:
         path = os.path.join(folder_path, file)
 
         try:
-            # TXT
             if file.lower().endswith(".txt"):
                 with open(path, "r", encoding="utf-8") as f:
                     texts.append(f.read())
 
-            # PDF (texto nativo)
             elif file.lower().endswith(".pdf"):
                 reader = PdfReader(path)
                 for page in reader.pages:
@@ -71,14 +69,12 @@ def load_documents(folder_path: str) -> str:
                     if text:
                         texts.append(text)
 
-            # Word (.docx)
             elif file.lower().endswith(".docx"):
                 doc = Document(path)
                 for p in doc.paragraphs:
                     if p.text.strip():
                         texts.append(p.text)
 
-            # Excel (.xlsx) – limitado
             elif file.lower().endswith(".xlsx"):
                 wb = openpyxl.load_workbook(path, data_only=True)
                 MAX_ROWS = 1000
@@ -130,27 +126,25 @@ def ask(payload: Question):
         }
 
     # -------------------------------------------------
-    # PROMPT ESTRITO (CONTROLE TOTAL DE LINGUAGEM)
+    # PROMPT FLUIDO, ATENCIOSO E NEUTRO
     # -------------------------------------------------
     messages = [
         {
             "role": "system",
             "content": (
-                "Você é um bibliotecário de referência virtual.\n\n"
-                "REGRAS OBRIGATÓRIAS:\n"
-                "- Responda EXCLUSIVAMENTE com base no conteúdo dos documentos fornecidos.\n"
-                "- NÃO cite nomes de instituições, universidades, sistemas, plataformas ou siglas.\n"
-                "- NÃO crie exemplos, listas ou explicações que não estejam explicitamente nos documentos.\n"
-                "- NÃO presuma prazos, horários, serviços ou procedimentos.\n"
-                "- NÃO utilize conhecimento externo.\n\n"
-                "Se a informação solicitada NÃO estiver claramente presente nos documentos, "
-                "responda APENAS:\n"
-                "\"Não encontrei essa informação nos documentos disponíveis.\""
+                "Você é um bibliotecário de referência virtual, com linguagem clara, "
+                "acolhedora e atenciosa.\n\n"
+                "Utilize exclusivamente as informações contidas nos documentos fornecidos.\n"
+                "Você pode explicar, reorganizar e resumir o conteúdo para facilitar o entendimento.\n\n"
+                "Evite mencionar nomes de instituições, universidades, sistemas, plataformas "
+                "ou siglas específicas. Caso apareçam nos documentos, "
+                "substitua por termos genéricos como \"a biblioteca\" ou \"o sistema\".\n\n"
+                "Não utilize conhecimento externo aos documentos."
             )
         }
     ]
 
-    # memória curta (apenas para coerência)
+    # memória curta (coerência da conversa)
     for m in payload.history:
         messages.append({"role": m.role, "content": m.content})
 
@@ -169,7 +163,7 @@ def ask(payload: Question):
     response = client.chat.completions.create(
         model="gpt-5.2",
         messages=messages,
-        temperature=0
+        temperature=0.2
     )
 
     return {
