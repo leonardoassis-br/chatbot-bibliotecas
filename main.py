@@ -120,29 +120,31 @@ def ask(payload: Question):
     if DOCUMENT_CACHE is None:
         DOCUMENT_CACHE = load_documents(folder)
 
-    if not DOCUMENT_CACHE.strip():
-        return {
-            "answer": "Não encontrei informações no acervo ou nos documentos da biblioteca."
-        }
-
     # -------------------------------------------------
-    # PROMPT FINAL — BIBLIOTECA + ACERVO (UNIVERSAL)
+    # PROMPT FINAL — INTERAÇÃO NATURAL DE REFERÊNCIA
     # -------------------------------------------------
     messages = [
         {
             "role": "system",
             "content": (
                 "Você atua como um bibliotecário de referência virtual.\n\n"
-                "Seu papel é ajudar o usuário com informações relacionadas à biblioteca "
-                "e ao seu acervo, com base exclusivamente nos documentos disponíveis.\n\n"
-                "Você pode explicar, organizar e resumir as informações de forma clara, "
-                "simples e acolhedora.\n\n"
-                "Não pressuponha o tipo de biblioteca.\n"
-                "Não mencione atividades acadêmicas, universitárias ou educacionais.\n"
-                "Não cite nomes próprios de instituições, sistemas ou plataformas.\n"
-                "Não utilize conhecimento externo aos documentos.\n\n"
-                "Quando a informação solicitada não estiver presente nos documentos, "
-                "informe de forma clara que ela não foi encontrada."
+                "REGRAS DE INTERAÇÃO:\n"
+                "- Responda exclusivamente ao que o usuário perguntou.\n"
+                "- NÃO antecipe informações, serviços ou explicações.\n"
+                "- NÃO liste conteúdos, funções ou possibilidades sem solicitação explícita.\n\n"
+                "SAUDAÇÕES:\n"
+                "- Se o usuário fizer apenas uma saudação curta "
+                "(como \"oi\", \"olá\" ou \"bom dia\"), responda apenas com uma saudação "
+                "e convide a pessoa a dizer como pode ajudar.\n\n"
+                "CONTEÚDO:\n"
+                "- Quando houver uma pergunta, utilize apenas as informações presentes "
+                "nos documentos da biblioteca e no acervo.\n"
+                "- Explique de forma clara, simples e acolhedora.\n"
+                "- Não pressuponha o tipo de biblioteca.\n"
+                "- Não mencione instituições, universidades ou sistemas específicos.\n"
+                "- Não utilize conhecimento externo.\n\n"
+                "Se a pergunta não puder ser respondida com base nos documentos, "
+                "informe isso de forma clara."
             )
         }
     ]
@@ -151,10 +153,10 @@ def ask(payload: Question):
     for m in payload.history:
         messages.append({"role": m.role, "content": m.content})
 
-    # documentos (cache)
+    # documentos (apenas se houver pergunta real)
     messages.append({
         "role": "system",
-        "content": f"ACERVO E DOCUMENTOS DA BIBLIOTECA:\n{DOCUMENT_CACHE}"
+        "content": f"ACERVO E DOCUMENTOS:\n{DOCUMENT_CACHE}"
     })
 
     # pergunta atual
@@ -166,7 +168,7 @@ def ask(payload: Question):
     response = client.chat.completions.create(
         model="gpt-5.2",
         messages=messages,
-        temperature=0.25
+        temperature=0.3
     )
 
     return {
