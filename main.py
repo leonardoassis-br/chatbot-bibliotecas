@@ -33,7 +33,7 @@ TOKEN_MAP = {
 }
 
 # -------------------------------------------------
-# Modelos
+# MODELOS
 # -------------------------------------------------
 class Message(BaseModel):
     role: str
@@ -44,7 +44,12 @@ class Question(BaseModel):
     history: list[Message] = []
 
 # -------------------------------------------------
-# Utilidades
+# CACHE DE DOCUMENTOS (EM MEMÓRIA)
+# -------------------------------------------------
+DOCUMENT_CACHE = None
+
+# -------------------------------------------------
+# UTILIDADES
 # -------------------------------------------------
 def extract_keywords(question: str):
     stopwords = {
@@ -59,9 +64,8 @@ def extract_keywords(question: str):
         if w not in stopwords and len(w) > 3
     ]
 
-def load_documents(folder_path: str, question: str) -> str:
+def load_documents(folder_path: str):
     texts = []
-    keywords = extract_keywords(question)
 
     for file in os.listdir(folder_path):
         path = os.path.join(folder_path, file)
@@ -86,31 +90,30 @@ def load_documents(folder_path: str, question: str) -> str:
 
             elif file.lower().endswith(".xlsx"):
                 wb = openpyxl.load_workbook(path, data_only=True)
-                MAX_MATCHES = 200
-                matches = 0
+                MAX_ROWS = 1000
+                rows = 0
 
                 for sheet in wb.worksheets:
                     for row in sheet.iter_rows(values_only=True):
+                        if rows >= MAX_ROWS:
+                            break
+
                         row_text = " ".join(
                             str(cell) for cell in row if cell is not None
-                        ).lower()
+                        )
 
-                        if not row_text.strip():
-                            continue
-
-                        if keywords and any(k in row_text for k in keywords):
+                        if row_text.strip():
                             texts.append(row_text)
-                            matches += 1
 
-                        if matches >= MAX_MATCHES:
-                            break
+                        rows += 1
+
         except Exception as e:
             print(f"Erro ao ler {file}: {e}")
 
     return "\n".join(texts)
 
 # -------------------------------------------------
-# Rotas
+# ROTAS
 # -------------------------------------------------
 @app.get("/")
 def chat():
@@ -118,39 +121,42 @@ def chat():
 
 @app.post("/ask")
 def ask(payload: Question):
-    token = os.getenv("TOKEN_BIBLIOTECA_EXEMPLO")
+    global DOCUMENT_CACHE
 
+    token = os.getenv("TOKEN_BIBLIOTECA_EXEMPLO")
     if token not in TOKEN_MAP:
         raise HTTPException(status_code=401, detail="Token inválido")
 
     folder = TOKEN_MAP[token]
 
-    documents = load_documents(folder, payload.question)
+    # 🔹 Carrega documentos apenas uma vez
+    if DOCUMENT_CACHE is None:
+        DOCUMENT_CACHE = load_documents(folder)
 
-    if not documents.strip():
+    if not DOCUMENT_CACHE.strip():
         return {
-            "answer": "Não encontrei informações nos documentos para responder a essa pergunta."
+            "answer": "Não encontrei informações nos documentos disponíveis."
         }
 
     messages = [
         {
             "role": "system",
             "content": (
-                "Você é um assistente institucional de biblioteca. "
-                "Use apenas os documentos fornecidos. "
-                "Considere o histórico recente da conversa apenas para manter coerência."
+                "Você é um bibliotecário de referência virtual. "
+                "Responda apenas com base nos documentos fornecidos. "
+                "Use o histórico apenas para manter coerência."
             )
         }
     ]
 
-    # memória curta (já vem limitada do frontend)
+    # memória curta
     for m in payload.history:
         messages.append({"role": m.role, "content": m.content})
 
-    # contexto documental
+    # documentos (cache)
     messages.append({
         "role": "system",
-        "content": f"DOCUMENTOS:\n{documents}"
+        "content": f"DOCUMENTOS:\n{DOCUMENT_CACHE}"
     })
 
     # pergunta atual
