@@ -44,7 +44,7 @@ class Question(BaseModel):
     history: list[Message] = []
 
 # -------------------------------------------------
-# CACHE DE DOCUMENTOS (MEMÓRIA VOLÁTIL)
+# CACHE DE DOCUMENTOS
 # -------------------------------------------------
 DOCUMENT_CACHE = None
 
@@ -100,11 +100,11 @@ def load_documents(folder_path: str) -> str:
     return "\n".join(texts)
 
 # -------------------------------------------------
-# UTILIDADE: DETECTAR SAUDAÇÃO
+# UTILIDADE: SAUDAÇÃO SIMPLES
 # -------------------------------------------------
 def is_greeting(text: str) -> bool:
     greetings = {
-        "oi", "olá", "ola", "bom dia", "boa tarde", "boa noite", "oi!"
+        "oi", "olá", "ola", "bom dia", "boa tarde", "boa noite"
     }
     return text.lower().strip() in greetings
 
@@ -121,11 +121,9 @@ def ask(payload: Question):
 
     question = payload.question.strip()
 
-    # 🔹 Resposta direta para saudações
+    # Saudação simples → resposta direta
     if is_greeting(question):
-        return {
-            "answer": "Oi! 😊 Em que posso ajudar?"
-        }
+        return {"answer": "Oi! 😊 Em que posso ajudar?"}
 
     token = os.getenv("TOKEN_BIBLIOTECA_EXEMPLO")
     if token not in TOKEN_MAP:
@@ -133,7 +131,6 @@ def ask(payload: Question):
 
     folder = TOKEN_MAP[token]
 
-    # Cache: carrega documentos apenas uma vez
     if DOCUMENT_CACHE is None:
         DOCUMENT_CACHE = load_documents(folder)
 
@@ -142,36 +139,31 @@ def ask(payload: Question):
             "answer": "Não encontrei informações no acervo ou nos documentos da biblioteca."
         }
 
-    # -------------------------------------------------
-    # PROMPT SIMPLES, FLUIDO E NEUTRO
-    # -------------------------------------------------
     messages = [
         {
             "role": "system",
             "content": (
                 "Você é um bibliotecário de referência virtual.\n\n"
-                "Responda apenas ao que foi perguntado.\n"
+                "Responda apenas ao que o usuário perguntou.\n"
                 "Utilize exclusivamente as informações presentes "
                 "nos documentos e no acervo fornecidos.\n"
                 "Explique de forma clara, simples e acolhedora.\n\n"
-                "Não mencione instituições específicas, universidades "
-                "ou sistemas nomeados.\n"
-                "Não antecipe informações não solicitadas."
+                "Não antecipe informações não solicitadas.\n"
+                "Não mencione instituições, universidades, "
+                "sistemas ou contextos acadêmicos.\n"
+                "Não utilize conhecimento externo."
             )
         }
     ]
 
-    # memória curta
     for m in payload.history:
         messages.append({"role": m.role, "content": m.content})
 
-    # documentos
     messages.append({
         "role": "system",
         "content": f"ACERVO:\n{DOCUMENT_CACHE}"
     })
 
-    # pergunta
     messages.append({
         "role": "user",
         "content": question
@@ -183,6 +175,8 @@ def ask(payload: Question):
         temperature=0.3
     )
 
-    return {
-        "answer": response.choices[0].message.content.strip()
-    }
+    answer = response.choices[0].message.content
+    if not answer or not answer.strip():
+        answer = "Pode me explicar um pouco melhor o que você procura?"
+
+    return {"answer": answer.strip()}
